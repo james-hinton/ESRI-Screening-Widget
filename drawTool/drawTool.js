@@ -38,7 +38,18 @@ define([
   'dojo/keys',
   "dojo/_base/event",
   'jimu/utils',
-  'dojo/dom-attr'
+  'dojo/dom-attr',
+  'esri/tasks/query',
+  'esri/tasks/QueryTask',
+  'dojo/Deferred',
+  'esri/graphic',
+  "esri/geometry/Point",
+  'esri/symbols/jsonUtils',
+  "esri/symbols/SimpleMarkerSymbol",
+  "esri/symbols/SimpleLineSymbol",
+  "esri/symbols/SimpleFillSymbol",
+  "esri/Color",
+
 ], function (
   declare,
   template,
@@ -64,7 +75,17 @@ define([
   keys,
   Event,
   jimuUtils,
-  domAttr
+  domAttr,
+  Query,
+  QueryTask,
+  Deferred,
+  Graphic,
+  Point,
+  jsonUtils,
+  SimpleMarkerSymbol,
+  SimpleLineSymbol,
+  SimpleFillSymbol,
+  Color,
 ) {
   return declare([BaseWidget, _WidgetsInTemplateMixin, Evented], {
     // Set base class for custom draw tool widget
@@ -203,14 +224,69 @@ define([
       }));
     },
 
+
+    _highlightLayer: function (layerItem, geometry) {
+        var queryObj = new Query();
+        var queryTask = new QueryTask(layerItem.featureLayer.url);
+
+        queryObj.where = '1=1'
+        queryObj.outFields = ["*"];
+        queryObj.returnGeometry = true;
+        queryObj.geometry = geometry;
+        queryObj.resultOffset = 0;
+
+        var results = []
+
+        queryTask.execute(queryObj, lang.hitch(this, function (featureResults) {
+          results.push(featureResults)
+
+          /*
+          // BUG: Esri's resultOffset doesnt work
+          if (featureResults.exceededTransferLimit) {
+            queryObj.resultOffset = 2000;
+            queryObj.resultRecordCount = 2000;
+
+            queryTask.resultOffset = 2000;
+            queryTask.resultRecordCount = 2000;
+
+            queryTask.execute(queryObj, lang.hitch(this, function (featureResults) {
+              results.push(featureResults)
+            }))
+          }
+          */
+
+          // Change this to highlight instead
+          let graphics = featureResults.features
+          array.forEach(graphics, lang.hitch(this, function (graphic) {
+            let x = graphic.geometry.x;
+            let y = graphic.geometry.y;
+            let spatialReference = graphic.geometry.spatialReference;
+            const point = new Point(x, y, spatialReference);
+
+            let radius = 16;
+
+            // highlight point graphic with 100px radius
+            let pointSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_CIRCLE, radius,
+              new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID,
+                new Color([0, 255, 255]), 2),
+              new Color([0, 255, 255]));
+            let pointGraphic = new Graphic(point, pointSymbol);
+
+            this.map.graphics.add(pointGraphic);
+          
+          }));
+        }))
+    },
+
     /**
      * This function to is used to get all the selectable layers
      * @memberOf drawTool/drawTool
      */
-    _getSelectableLayers: function () {
+    _getSelectableLayers: function (geometry) {
       var layers = [];
       array.forEach(this.layerItems, function (layerItem) {
         if (layerItem.isLayerVisible() && layerItem.isChecked()) {
+          this._highlightLayer(layerItem, geometry)
           layers.push(layerItem.featureLayer);
         }
       }, this);
@@ -239,6 +315,7 @@ define([
      */
     _selectAllLayers: function () {
       var isSelectAll;
+      this.map.graphics.clear();
       html.toggleClass(this.selectAllLayers, 'checked');
       isSelectAll = domClass.contains(this.selectAllLayers, "checked");
       if (isSelectAll) {
@@ -384,8 +461,9 @@ define([
       }
       // On draw tool activated, deactivate select tool if selected
       this.own(on(this._drawTool, "draw-activate", lang.hitch(this, function (tool) {
+        this._drawTool.drawLayer.clear();
+        this._displayLayerChooserListOfSelectTool();
         this.currentSelectedDrawTool = tool;
-        this._hideLayerChooserListOfSelectTool();
         if (this.selectTool && this.selectTool.isActive()) {
           this._drawTool.drawToolBar.activate(tool);
         }
@@ -554,7 +632,6 @@ define([
       if (this.selectTool) {
         this.selectTool.deactivate();
       }
-      this._hideLayerChooserListOfSelectTool();
     },
 
     /**

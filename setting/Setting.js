@@ -237,7 +237,7 @@ define([
           this.config.showPolylineTool = this.polylineSelectToolCheckBox.checked;
         }
         if (this.extentSelectToolCheckBox) {
-          this.config.showExtentTool = this.extentSelectToolCheckBox.checked;
+          //this.config.showExtentTool = this.extentSelectToolCheckBox.checked;
         }
         if (this.polygonSelectToolCheckBox) {
           this.config.showPolygonTool = this.polygonSelectToolCheckBox.checked;
@@ -627,7 +627,7 @@ define([
           this.polylineSelectToolCheckBox.setValue(this.config.showPolylineTool);
         }
         if (this.config.hasOwnProperty("showExtentTool")) {
-          this.extentSelectToolCheckBox.setValue(this.config.showExtentTool);
+          //this.extentSelectToolCheckBox.setValue(this.config.showExtentTool);
         }
         if (this.config.hasOwnProperty("showPolygonTool")) {
           this.polygonSelectToolCheckBox.setValue(this.config.showPolygonTool);

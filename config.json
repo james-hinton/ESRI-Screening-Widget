@@ -11,7 +11,7 @@
   "showCoordinatesWidget": false,
   "allowShapefilesUpload": false,
   "areaUnits": "Feet",
-  "maxFeaturesForAnalysis": 1000,
+  "maxFeaturesForAnalysis": 10000,
   "searchTolerance": 20,
   "traverseUnit": "uSSurveyFeet",
   "traverseDirectionUnit": "decimalDegree",

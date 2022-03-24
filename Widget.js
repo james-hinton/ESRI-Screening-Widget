@@ -66,8 +66,16 @@ define([
   'dojo/DeferredList',
   "dojo/_base/event",
   'dojo/dom-geometry',
-  'dijit/form/NumberTextBox',
-  'dijit/form/DropDownButton'
+
+  "esri/Color",
+  "esri/symbols/SimpleMarkerSymbol",
+  "esri/symbols/SimpleLineSymbol",
+  "esri/symbols/SimpleFillSymbol",
+  "esri/geometry/Polygon",
+  "esri/geometry/Point",
+  'dojo/Evented',
+
+
 ], function (
   declare,
   on,
@@ -120,10 +128,18 @@ define([
   esriRequest,
   DeferredList,
   Event,
-  domGeom
+  domGeom,
+  Color,
+  SimpleMarkerSymbol,
+  SimpleLineSymbol,
+  SimpleFillSymbol,
+  Polygon,
+  Point,
+  Evented,
+  
 ) {
   // To create a widget, you need to derive from BaseWidget.
-  return declare([BaseWidget, _WidgetsInTemplateMixin], {
+  return declare([BaseWidget, _WidgetsInTemplateMixin, Evented], {
     baseClass: 'jimu-widget-screening',
     _bufferValue: null, // To store buffer value
     _currentActiveTool: null, // To hold which aoi Widget is open
@@ -2165,7 +2181,13 @@ define([
             this.loadingIndicator.hide();
           }));
         } else {
-          this._initToCreateAOIBuffer(graphics);
+          this.map.graphics.clear()
+          this._aoiGraphicsLayer.clear();
+          this._drawnOrSelectedGraphicsLayer.clear();
+          this._toleranceGraphicsLayer.clear();
+          this._uploadedShapefileGraphicsLayer.clear();
+          this._highlightGraphicsLayer.clear();
+          this._initToCreateAOIBuffer(graphics, 'rectangle');
         }
       })));
       this.own(on(this._drawTool, "clearExistingSelection", lang.hitch(this, function () {
@@ -2373,9 +2395,10 @@ define([
      * 1. 'drawnOrSelectedGraphics an array of AOI features
      * @memberOf Screening/Widget
      */
-    _initToCreateAOIBuffer: function (graphics) {
+    _initToCreateAOIBuffer: function (graphics, tool) {
       // Clear previously drawn graphics from the graphics layers
       // Clear AOI graphics
+      this.map.graphics.clear()
       this._aoiGraphicsLayer.clear();
       this._drawnOrSelectedGraphicsLayer.clear();
       this._toleranceGraphicsLayer.clear();
@@ -2390,8 +2413,10 @@ define([
       if (this._coordinatesTool && this._currentActiveTool !== "coordinates") {
         this._coordinatesTool.resetCoordinatesWidgetValue();
       }
-      // Function to add reference geometry graphics for AOI
-      this._addDrawnOrSelectedGraphicsOnMap(graphics);
+
+      // current selected draw mode
+      this._addDrawnOrSelectedGraphicsOnMap(graphics, tool);
+
       if (!this._validateAndAddAOI()) {
         //as AOI is invalid we will not have AOI/Buffer geometry, we will only have drawn/selected
         //graphics so set the extent to drawn or selected graphics layer
@@ -2478,8 +2503,9 @@ define([
      * 1. 'symbology' for the selected tab
      * @memberOf Screening/Widget
      */
-    _addDrawnOrSelectedGraphicsOnMap: function (graphics) {
+    _addDrawnOrSelectedGraphicsOnMap: function (graphics, tool) {
       // Loop through each graphic
+      //this._drawnOrSelectedGraphicsLayer.clear()
       array.forEach(graphics, lang.hitch(this, function (graphic) {
         var newGraphic, symbol;
         if (graphic && graphic.geometry && graphic.geometry.type) {
@@ -2488,6 +2514,8 @@ define([
           newGraphic = new Graphic(graphic.geometry, symbol);
           // Add graphic to which buffer will be drawn
           if (newGraphic && symbol) {
+            // So this adds to the map?
+
             this._drawnOrSelectedGraphicsLayer.add(newGraphic);
             this._enableClearAOIButton();
             this._setAccessibility();
@@ -2750,6 +2778,7 @@ define([
         this._drawnOrSelectedGraphicsLayer.graphics &&
         this._drawnOrSelectedGraphicsLayer.graphics.length > 0) {
         graphics = this._drawnOrSelectedGraphicsLayer.graphics;
+
         // Show loading indicator
         this._loadingIndicator.show();
         // Loop through each feature
@@ -2831,6 +2860,11 @@ define([
       }), 50);
     },
 
+    _highlightFeatures: function (geometry) {
+      this.map.graphics.clear();
+      var layers = this._drawTool._getSelectableLayers(geometry)
+    },
+    
     /**
      * This function will clear AOI graphics from map
      * @memberOf Screening/Widget
@@ -2875,10 +2909,12 @@ define([
      * @memberOf Screening/Widget
      */
     _drawAOIOnMap: function (aoiGeometries, addAOISymbology) {
+
       // Show loading indicator
       this._loadingIndicator.show();
       this._aoiGraphicsLayer.clear();
       array.forEach(aoiGeometries, lang.hitch(this, function (geometry) {
+        this._highlightFeatures(geometry);
         var newGraphic;
         //only add polygon/buffers dont add point/line on AOI graphics layer
         if (geometry.type !== "point" && geometry.type !== "polyline") {
